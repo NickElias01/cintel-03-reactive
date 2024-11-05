@@ -59,18 +59,18 @@ with ui.layout_columns():
     # Data Table
     @render.data_frame  
     def penguins_datatable():
-        return render.DataTable(penguins_df) 
+        return render.DataTable(filtered_data()) 
 
     # Data Grid
     @render.data_frame  
     def penguins_datagrid():
-        return render.DataGrid(penguins_df)
+        return render.DataGrid(filtered_data())
 
     # Plotly histogram
     @render_widget  
     def histogram_plot():  
         plotly_histogram = px.histogram(
-            data_frame=penguins_df,
+            data_frame=filtered_data(),
             x=input.selected_attribute(),
             nbins=input.plotly_bin_count(),
             color="species"
@@ -86,7 +86,7 @@ with ui.layout_columns():
     @render_widget  
     def scatter_plot():  
         plotly_scatterplot = px.scatter(
-            data_frame=penguins_df,
+            data_frame=filtered_data(),
             x=input.selected_attribute(),
             y="body_mass_g",
             color="species"
@@ -103,7 +103,7 @@ with ui.layout_columns():
      
         # Create the histogram
         ax = sns.histplot(
-            data=penguins_df, 
+            data=filtered_data(), 
             x=input.selected_attribute(), 
             bins=input.seaborn_bin_count(), 
             hue="species", 
