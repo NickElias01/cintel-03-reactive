@@ -8,33 +8,49 @@ from shiny import reactive
 # Load the penguins dataset
 penguins_df = load_penguins()
 
-# Define UI with Shiny Express
-ui.page_opts(title="Elias Analytics - Penguin Data", fillable=True)
+# Dictionary for formatting attribute names
+attribute_labels = {
+    "bill_length_mm": "Bill Length (mm)",
+    "bill_depth_mm": "Bill Depth (mm)",
+    "flipper_length_mm": "Flipper Length (mm)",
+    "body_mass_g": "Body Mass (g)"
+}
 
-# Sidebar for user interactions
+# Reverse dictionary for mapping formatted labels back to raw attribute names
+attribute_reverse_map = {v: k for k, v in attribute_labels.items()}
+
+# Define UI options with Shiny Express and set the main container as scrollable
+ui.page_opts(
+    title="Elias Analytics - Penguin Data",
+    fillable=True,
+    style="max-height: 90vh; overflow-y: scroll; padding: 10px;",
+    fullwidth=True
+)
+
+# Sidebar for user interactions and selections
 with ui.sidebar(open="open", bg="#CCE7FF"):
     ui.h2("Options")
 
-    # Dropdown for selecting penguin attributes
+    # Dropdown for selecting penguin attributes for analysis
     ui.input_selectize(
         "selected_attribute",
         "Select Penguin Attribute:",
-        ["bill_length_mm", "bill_depth_mm", "flipper_length_mm", "body_mass_g"],
+        list(attribute_labels.values()),  # Use the formatted labels
     )
 
-    # Numeric input for the number of Plotly histogram bins
+    # Numeric input for controlling the number of bins in the Plotly histogram
     ui.input_numeric(
         "plotly_bin_count",
-        "Number of Plotly Bins:",
+        "Plotly Histogram Bins:",
         10,  # Default value
         min=1,
         max=100,
     )
 
-    # Slider input for the number of Seaborn bins
-    ui.input_slider("seaborn_bin_count", "Number of Seaborn Bins:", min=5, max=50, value=20)
+    # Slider for setting the number of bins in the Seaborn histogram
+    ui.input_slider("seaborn_bin_count", "Seaborn Histogram Bins:", min=5, max=50, value=20)
 
-    # Checkbox group for filtering by species
+    # Checkbox group for filtering the dataset by penguin species
     ui.input_checkbox_group(
         "selected_species_list",
         "Filter by Species:",
@@ -43,89 +59,115 @@ with ui.sidebar(open="open", bg="#CCE7FF"):
         inline=False,
     )
 
-    # Horizontal rule
-    ui.hr()
-
-    # Link to GitHub
-    ui.a(
-        "GitHub", href="https://github.com/NickElias01/cintel-02-data", target="_blank"
+    # Checkbox group for filtering the dataset by penguin island
+    ui.input_checkbox_group(
+        "selected_island_list",
+        "Filter by Island:",
+        ["Biscoe", "Dream", "Torgersen"],  # List of islands in the dataset
+        selected=["Biscoe", "Dream", "Torgersen"],  # Default selected islands
+        inline=False,  # Set inline to False to stack the checkboxes vertically
     )
 
-# Main content area for the plots and data table
-with ui.layout_columns():
+    # Horizontal rule for visual separation
+    ui.hr()
 
-    ui.h2("Palmer Penguins")
-
-    # Data Table
-    @render.data_frame  
-    def penguins_datatable():
-        return render.DataTable(filtered_data()) 
-
-    # Data Grid
-    @render.data_frame  
-    def penguins_datagrid():
-        return render.DataGrid(filtered_data())
-
-    # Plotly histogram
-    @render_widget  
-    def histogram_plot():  
-        plotly_histogram = px.histogram(
-            data_frame=filtered_data(),
-            x=input.selected_attribute(),
-            nbins=input.plotly_bin_count(),
-            color="species"
-        ).update_layout(
-            title={"text": "Penguin Attribute Histogram", "x": 0.5},
-            yaxis_title="Count",
-            xaxis_title=input.selected_attribute().replace("_", " ").title(),
+     # Link to GitHub repository for additional resources
+    ui.a(
+         "Link to GitHub", href="https://github.com/NickElias01/cintel-03-reactive", target="_blank"
         )
-    
-        return plotly_histogram
 
-    # Plotly scatter plot
-    @render_widget  
-    def scatter_plot():  
-        plotly_scatterplot = px.scatter(
-            data_frame=filtered_data(),
-            x=input.selected_attribute(),
-            y="body_mass_g",
-            color="species"
-        ).update_layout(
-            title={"text": "Penguin Attribute vs Body Mass", "x": 0.5},
-            yaxis_title="Body Mass (g)",
-            xaxis_title=input.selected_attribute().replace("_", " ").title(),
-        )
-        return plotly_scatterplot
+# Main content area: Each visual component is wrapped in a card for better layout on smaller screens
+with ui.layout_columns(fill=True):
 
-    # Seaborn Histogram
-    @render.plot(alt="A Seaborn histogram showing distribution by species.")  
-    def plot():  
-     
-        # Create the histogram
-        ax = sns.histplot(
-            data=filtered_data(), 
-            x=input.selected_attribute(), 
-            bins=input.seaborn_bin_count(), 
-            hue="species", 
-            element="step",
-            kde=True
-        )
-        
-        # Set title and labels
-        ax.set_title("Distribution of " + input.selected_attribute().replace("_", " ").title())
-        ax.set_xlabel(input.selected_attribute().replace("_", " ").title())
-        ax.set_ylabel("Count")
-        return ax
+    # Data Table Card
+    with ui.card(full_screen=True):
+        ui.h3("Penguin Data Table")
+        # Render a data table displaying filtered penguin data
+        @render.data_frame
+        def penguins_datatable():
+            return render.DataTable(filtered_data())
+
+    # Data Grid Card
+    with ui.card(full_screen=True):
+        ui.h3("Penguin Data Grid")
+        # Render a data grid displaying the same filtered penguin data
+        @render.data_frame
+        def penguins_datagrid():
+            return render.DataGrid(filtered_data())
+
+ui.hr()
+
+with ui.layout_columns(fill=True):
+    # Plotly Histogram Card
+    with ui.card(full_screen=True):
+        ui.h3("Plotly Histogram")
+        # Render a histogram of the selected attribute using Plotly
+        @render_widget
+        def histogram_plot():  
+            plotly_histogram = px.histogram(
+                data_frame=filtered_data(),
+                x=attribute_reverse_map[input.selected_attribute()],  # Map to raw attribute name
+                nbins=input.plotly_bin_count(),
+                color="species"
+            ).update_layout(
+                title={"text": f"{input.selected_attribute()} Distribution", "x": 0.5},
+                yaxis_title="Count",
+                xaxis_title=input.selected_attribute(),
+            )
+            return plotly_histogram
+
+    # Plotly Scatter Plot Card
+    with ui.card(full_screen=True):
+        ui.h3("Plotly Scatter Plot")
+        # Render a scatter plot comparing the selected attribute to body mass using Plotly
+        @render_widget
+        def scatter_plot():  
+            plotly_scatterplot = px.scatter(
+                data_frame=filtered_data(),
+                x=attribute_reverse_map[input.selected_attribute()],  # Map to raw attribute name
+                y="body_mass_g",
+                color="species"
+            ).update_layout(
+                title={"text": f"{input.selected_attribute()} vs Body Mass(g)"},
+                yaxis_title="Body Mass (g)",
+                xaxis_title=input.selected_attribute(),
+            )
+            return plotly_scatterplot
+
+    # Seaborn Histogram Card
+    with ui.card(full_screen=True):
+        ui.h3("Seaborn Histogram")
+        # Render a histogram of the selected attribute using Seaborn
+        @render.plot(alt="Seaborn histogram of the selected penguin attribute by species, with KDE overlay.")
+        def plot():  
+            # Create the histogram with Seaborn
+            ax = sns.histplot(
+                data=filtered_data(), 
+                x=attribute_reverse_map[input.selected_attribute()],  # Map to raw attribute name
+                bins=input.seaborn_bin_count(), 
+                hue="species", 
+                element="step",
+                kde=True
+            )
+            
+            # Set the title and labels for the histogram
+            ax.set_title(f"Distribution of {input.selected_attribute()} by Species")
+            ax.set_xlabel(input.selected_attribute())
+            ax.set_ylabel("Count")
+            return ax
 
 # --------------------------------------------------------
-# Reactive calculations and effects
+# Reactive calculations for dynamic filtering based on user selections
 # --------------------------------------------------------
 
-# Add a reactive calculation to filter the data
-# By decorating the function with @reactive, we can use the function to filter the data
-# The function will be called whenever an input functions used to generate that output changes.
-# Any output that depends on the reactive function (e.g., filtered_data()) will be updated when the data changes.
-
+# Define a reactive calculation for data filtering
 @reactive.calc
 def filtered_data():
-    return penguins_df
+    """Filter penguins dataset based on selected species and island."""
+    # Filter based on selected species list
+    filtered_df = penguins_df[penguins_df["species"].isin(input.selected_species_list())]
+    
+    # Filter based on selected island list
+    filtered_df = filtered_df[filtered_df["island"].isin(input.selected_island_list())]
+    
+    return filtered_df
